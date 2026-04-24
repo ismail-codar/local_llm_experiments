@@ -68,8 +68,8 @@ echo "TurboQuant KV Cache + 256K Context ile arka planda başlatılıyor..."
 
 # nohup ./build/bin/llama-server \
 #   -m "$MODEL_FILE" \
-#   --cache-type-k turbo3 \
-#   --cache-type-v turbo3 \
+#   --cache-type-k turbo4 \
+#   --cache-type-v turbo4 \
 #   -c 262144 \
 #   -ngl 99 \
 #   --flash-attn on \
@@ -85,8 +85,8 @@ echo "TurboQuant KV Cache + 256K Context ile arka planda başlatılıyor..."
 
 # nohup ./build/bin/llama-server \
 #   -m "$MODEL_FILE" \
-#   --cache-type-k turbo3 \
-#   --cache-type-v turbo3 \
+#   --cache-type-k turbo4 \
+#   --cache-type-v turbo4 \
 #   -c 262144 \
 #   -ngl 99 \
 #   --flash-attn on \
@@ -102,8 +102,8 @@ echo "TurboQuant KV Cache + 256K Context ile arka planda başlatılıyor..."
 
 nohup ./build/bin/llama-server \
   -m "$MODEL_FILE" \
-  --cache-type-k turbo3 \
-  --cache-type-v turbo3 \
+  --cache-type-k turbo4 \
+  --cache-type-v turbo4 \
   -c 262144 \
   -ngl 99 \
   --flash-attn on \

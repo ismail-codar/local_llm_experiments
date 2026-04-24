@@ -85,8 +85,8 @@ echo "🚀 llama-server başlatılıyor..."
 nohup ./build/bin/llama-server \
   -m "$MODEL_FILE" \
   --mmproj "$MMPROJ_FILE" \
-  --cache-type-k turbo3 \
-  --cache-type-v turbo3 \
+  --cache-type-k turbo4 \
+  --cache-type-v turbo4 \
   -c "$CTX_SIZE" \
   -ngl "$NGL" \
   --flash-attn on \
