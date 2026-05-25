@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "=== Local LLM + TurboQuant (L40S 48GB - aria2c indir + models'ten çalıştır) ==="
+echo "=== Local LLM + TurboQuant + Qwen3.6 MTP (NVIDIA L40S 48GB) ==="
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 ROOT_DIR="$SCRIPT_DIR"
@@ -9,121 +9,134 @@ LLAMA_DIR="$ROOT_DIR/llama-cpp-turboquant"
 MODEL_DIR="$ROOT_DIR/../models"
 LOG_FILE="$ROOT_DIR/llama-server.log"
 
-# TODO https://github.com/ggml-org/llama.cpp/blob/master/models/templates/google-gemma-4-31B-it-interleaved.jinja
+HOST="0.0.0.0"
+PORT="8001"
 
-# 115 token/saniye
-# MODEL_URL="https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF/resolve/main/gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
-# MODEL_FILE="$MODEL_DIR/gemma-4-26B-A4B-it-UD-Q4_K_XL.gguf"
+# L40S 48GB icin onerilen:
+# - UD-Q5_K_XL: kalite/VRAM dengesi iyi, 27.2 GB
+# - 256K context + TurboQuant KV cache
+# - MTP/speculative decoding aktif
+#
+# Daha hizli / daha serin alternatif:
+#   Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf
+#
+# Daha kaliteli ama VRAM daha sikisik:
+#   Qwen3.6-35B-A3B-UD-Q6_K_XL.gguf
 
-# 125 token/saniye
-# MODEL_URL="https://huggingface.co/mudler/gemma-4-26B-A4B-it-APEX-GGUF/resolve/main/gemma-4-26B-A4B-APEX-Quality.gguf"
-# MODEL_FILE="$MODEL_DIR/gemma-4-26B-A4B-APEX-Quality.gguf"
-
-# 35 token/saniye
-# MODEL_URL="https://huggingface.co/Jackrong/Qwopus3.5-27B-v3-GGUF/resolve/main/Qwopus3.5-27B-v3-Q4_K_M.gguf"
-# MODEL_FILE="$MODEL_DIR/Qwopus3.5-27B-v3-Q4_K_M.gguf"
-
-# 105 token/saniye
-# MODEL_URL="https://huggingface.co/Jackrong/Gemopus-4-26B-A4B-it-GGUF/resolve/main/Gemopus-4-26B-A4B-it-Preview-Q8_0.gguf"
-# MODEL_FILE="$MODEL_DIR/Gemopus-4-26B-A4B-it-Preview-Q8_0.gguf"
-
-# 122 token/saniye
-# MODEL_URL="https://huggingface.co/Jiunsong/supergemma4-26b-uncensored-gguf-v2/resolve/main/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"
-# MODEL_FILE="$MODEL_DIR/supergemma4-26b-uncensored-fast-v2-Q4_K_M.gguf"
-
-# 138 token/saniye
-MODEL_URL="https://huggingface.co/ClankLabs/Wrench-35B-A3B-Q4_K_M-GGUF/resolve/main/Wrench-35B-A3B-Q4_K_M-GGUF.gguf"
-MODEL_FILE="$MODEL_DIR/Wrench-35B-A3B-Q4_K_M-GGUF.gguf"
-
-# 122 token/saniye
-MODEL_URL="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf"
+MODEL_URL="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf"
 MODEL_FILE="$MODEL_DIR/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf"
 
+# 48GB L40S icin baslangic ayarlari
+CTX_SIZE=262144
+PARALLEL_SLOTS=1
+GPU_LAYERS=99
+BATCH_SIZE=1024
+UBATCH_SIZE=512
+THREADS=0
+
+# MTP:
+# Resmi llama.cpp guncel ad: draft-mtp
+# Bazi TurboQuant fork'lari eski ad olan mtp kullanir.
+SPEC_DRAFT_N_MAX=6
+
+# KV cache:
+# turbo4 daha kaliteli; 48GB L40S icin uygun.
+# Daha fazla bos VRAM / hiz denemesi icin K turbo3, V turbo4 denenebilir.
+CACHE_TYPE_K="turbo4"
+CACHE_TYPE_V="turbo4"
+
+# Qwen reasoning butcesi:
+# 0 = reasoning kapali/daha hizli
+# 4096 = dengeli
+# 8192 = uzun dusunme icin
+REASONING_BUDGET=4096
 
 mkdir -p "$MODEL_DIR"
 cd "$LLAMA_DIR"
 
-echo "⬇️ Model indiriliyor:"
+echo "Model:"
 echo "   $MODEL_URL"
+echo "Dosya:"
+echo "   $MODEL_FILE"
 
-if command -v aria2c >/dev/null 2>&1; then
-    aria2c \
-        --dir="$MODEL_DIR" \
-        --out="$(basename "$MODEL_FILE")" \
-        --continue=true \
-        --max-connection-per-server=16 \
-        --split=16 \
-        --min-split-size=10M \
-        --file-allocation=none \
-        "$MODEL_URL"
+if [ ! -f "$MODEL_FILE" ]; then
+    echo "Model indiriliyor..."
+    if command -v aria2c >/dev/null 2>&1; then
+        aria2c \
+            --dir="$MODEL_DIR" \
+            --out="$(basename "$MODEL_FILE")" \
+            --continue=true \
+            --max-connection-per-server=16 \
+            --split=16 \
+            --min-split-size=10M \
+            --file-allocation=none \
+            "$MODEL_URL"
+    else
+        echo "aria2c bulunamadi. Kur:"
+        echo "   Ubuntu/Debian: sudo apt-get update && sudo apt-get install -y aria2"
+        exit 1
+    fi
 else
-    echo "❌ aria2c bulunamadı. Kur:"
-    echo "   Ubuntu/Debian: sudo apt-get update && sudo apt-get install -y aria2"
+    echo "Model zaten var, indirme atlandi."
+fi
+
+if [ ! -x ./build/bin/llama-server ]; then
+    echo "llama-server bulunamadi veya executable degil:"
+    echo "   ./build/bin/llama-server"
     exit 1
 fi
 
-echo "TurboQuant KV Cache + 256K Context ile arka planda başlatılıyor..."
+# llama.cpp 13 Mayis 2026 civari --spec-type mtp adini draft-mtp olarak degistirdi.
+# Fork eski adla derlenmis olabilir; otomatik sec.
+if ./build/bin/llama-server --help 2>&1 | grep -q "draft-mtp"; then
+    SPEC_TYPE="draft-mtp"
+elif ./build/bin/llama-server --help 2>&1 | grep -q "mtp"; then
+    SPEC_TYPE="mtp"
+else
+    echo "Bu llama-server build'i MTP spec decoding desteklemiyor gibi gorunuyor."
+    echo "MTP + TurboQuant destekli fork/build kullandigindan emin ol."
+    exit 1
+fi
+
+echo "Secilen spec-type: $SPEC_TYPE"
+echo "TurboQuant KV Cache + 256K Context + MTP ile baslatiliyor..."
 
 : > "$LOG_FILE"
 
-# nohup ./build/bin/llama-server \
-#   -m "$MODEL_FILE" \
-#   --cache-type-k turbo4 \
-#   --cache-type-v turbo4 \
-#   -c 262144 \
-#   -ngl 99 \
-#   --flash-attn on \
-#   --cont-batching \
-#   -np 4 \
-#   --host 0.0.0.0 \
-#   --port 8001 \
-#   --jinja \
-#   -t 0 \
-#   --no-mmap \
-#   --reasoning-budget 0 \
-#   > "$LOG_FILE" 2>&1 &
-
-# nohup ./build/bin/llama-server \
-#   -m "$MODEL_FILE" \
-#   --cache-type-k turbo4 \
-#   --cache-type-v turbo4 \
-#   -c 262144 \
-#   -ngl 99 \
-#   --flash-attn on \
-#   --cont-batching \
-#   -np 4 \
-#   --host 0.0.0.0 \
-#   --port 8001 \
-#   --jinja \
-#   -t 0 \
-#   --no-mmap \
-#   --reasoning-budget 4096 \
-#   >/dev/null 2>&1 &
-
 nohup ./build/bin/llama-server \
   -m "$MODEL_FILE" \
-  --cache-type-k turbo4 \
-  --cache-type-v turbo4 \
-  -c 262144 \
-  -ngl 99 \
+  -ngl "$GPU_LAYERS" \
+  -c "$CTX_SIZE" \
   --flash-attn on \
   --cont-batching \
-  -np 2 \
-  --host 0.0.0.0 \
-  --port 8001 \
+  -np "$PARALLEL_SLOTS" \
+  --host "$HOST" \
+  --port "$PORT" \
   --jinja \
-  -t 0 \
-  --reasoning-budget 16384 \
-  --batch-size 512 \
-  --ubatch-size 512 \
-  >/dev/null 2>&1 &
+  -t "$THREADS" \
+  --batch-size "$BATCH_SIZE" \
+  --ubatch-size "$UBATCH_SIZE" \
+  --cache-type-k "$CACHE_TYPE_K" \
+  --cache-type-v "$CACHE_TYPE_V" \
+  --spec-type "$SPEC_TYPE" \
+  --spec-draft-n-max "$SPEC_DRAFT_N_MAX" \
+  --reasoning-budget "$REASONING_BUDGET" \
+  --no-mmap \
+  > "$LOG_FILE" 2>&1 &
 
 SERVER_PID=$!
 
 echo ""
-echo "🚀 llama-server arka planda başlatıldı (PID: $SERVER_PID)"
-echo "📝 Log dosyası: $LOG_FILE"
-echo "📦 Model dosyası: $MODEL_FILE"
-echo "🌐 Web arayüzü: http://$(hostname -I | awk '{print $1}'):8001"
+echo "llama-server arka planda baslatildi (PID: $SERVER_PID)"
+echo "Log dosyasi: $LOG_FILE"
+echo "Model dosyasi: $MODEL_FILE"
+echo "Context: $CTX_SIZE"
+echo "Parallel slots: $PARALLEL_SLOTS"
+echo "MTP: $SPEC_TYPE, draft-n-max=$SPEC_DRAFT_N_MAX"
+echo "KV cache: K=$CACHE_TYPE_K, V=$CACHE_TYPE_V"
+echo "Web arayuzu: http://$(hostname -I | awk '{print $1}'):$PORT"
 echo ""
-echo "Durdurmak için: ./stop.sh"
+echo "Log takip:"
+echo "   tail -f $LOG_FILE"
+echo ""
+echo "Durdurmak icin: ./stop.sh"
