@@ -1,0 +1,6 @@
+# Windows'ta yazilan/duzenlenen shell ve config dosyalari Linux'ta CRLF
+# nedeniyle "Illegal option" hatasi verebilir. Bu dosyalar her zaman LF ile
+# checkout/commit edilsin.
+*.sh    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf

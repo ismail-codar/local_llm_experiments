@@ -24,13 +24,15 @@ PORT="8001"
 #   Qwen3.6-35B-A3B-UD-Q6_K_XL.gguf
 
 MODEL_URL="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf"
-MODEL_FILE="$MODEL_DIR/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf"
+# Not: Unsloth, MTP'li ve MTP'siz repolarda ayni dosya adini kullaniyor.
+# Cakismayi onlemek icin yerel adi acikca "-MTP-" ile isaretliyoruz.
+MODEL_FILE="$MODEL_DIR/Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf"
 
 # Multimodal (vision) destegi - opsiyonel.
 # 1 = mmproj indir ve --mmproj ile baslat (text + vision)
 # 0 = sadece text (varsayilan, en hizli)
 # Not: Qwen3.6-35B-A3B-MTP-GGUF repo'sunda mmproj birlikte yayinlaniyor.
-ENABLE_MMPROJ=0
+ENABLE_MMPROJ=1
 MMPROJ_URL="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/mmproj-F16.gguf"
 MMPROJ_FILE="$MODEL_DIR/mmproj-F16.gguf"
 

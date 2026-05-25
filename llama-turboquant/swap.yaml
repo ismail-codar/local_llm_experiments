@@ -24,7 +24,7 @@ models:
     cmd: |
       ${turbo_dir}/build/bin/llama-server
       --host 127.0.0.1 --port ${PORT}
-      -m ${models_dir}/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf
+      -m ${models_dir}/Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf
       --mmproj ${models_dir}/mmproj-F16.gguf
       -c 262144
       -ngl 99

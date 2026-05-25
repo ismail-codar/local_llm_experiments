@@ -139,9 +139,11 @@ Modelleri **`../models/`** altına indir. En kolay yol: `run.sh`'i bir kez `ENAB
 
 `swap.yaml` (örnek, tek profil) içindeki dosya isimleri:
 ```
-../models/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf
+../models/Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf
 ../models/mmproj-F16.gguf
 ```
+
+> **Dikkat:** Unsloth MTP'li ve MTP'siz repolarda **aynı dosya adını** kullanıyor (`Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf`). `run.sh` çakışmayı önlemek için yerel adı `Qwen3.6-35B-A3B-MTP-UD-Q5_K_XL.gguf` olarak yazar. Eski (MTP'siz) bir dosyan varsa MTP yüklemesi `context type MTP requested but model doesn't contain MTP layers` hatasıyla başarısız olur — eski dosyayı sil ve yeniden indir.
 
 Başlat:
 ```sh
@@ -416,6 +418,7 @@ print_timings: speculative ...    # özet
 | `llama-server bulunamadi` | İlgili `install*.sh` çalıştı mı? `ls llama-cpp-turboquant/build/bin/` |
 | `MTP spec decoding desteklemiyor` | Fork eski sürümde, `git -C llama-cpp-turboquant pull` + rebuild |
 | `mmproj-F16.gguf yok` | Unsloth Qwen3.6-…-MTP-GGUF repo'sundan ayrıca indir |
+| `context type MTP requested but model doesn't contain MTP layers` | Dosya **MTP'siz** repo'dan inmiş. `rm models/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf` ile sil, `run.sh` yeniden çalıştır — bu kez `-MTP-` ekli isimle MTP repo'sundan iner |
 | Swap'te model timeout | `healthCheckTimeout: 600`'ü artır; `tail -f llama-swap.log` |
 | WebUI boş geliyor | İlk istek model yükleme bekliyor; log'da `loading model` görmelisin |
 | VRAM dolu | `nvidia-smi`; başka llama-server var mı? `pkill -f llama-server` |
