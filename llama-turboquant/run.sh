@@ -26,6 +26,14 @@ PORT="8001"
 MODEL_URL="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf"
 MODEL_FILE="$MODEL_DIR/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf"
 
+# Multimodal (vision) destegi - opsiyonel.
+# 1 = mmproj indir ve --mmproj ile baslat (text + vision)
+# 0 = sadece text (varsayilan, en hizli)
+# Not: Qwen3.6-35B-A3B-MTP-GGUF repo'sunda mmproj birlikte yayinlaniyor.
+ENABLE_MMPROJ=0
+MMPROJ_URL="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/main/mmproj-F16.gguf"
+MMPROJ_FILE="$MODEL_DIR/mmproj-F16.gguf"
+
 # 48GB L40S icin baslangic ayarlari
 CTX_SIZE=262144
 PARALLEL_SLOTS=1
@@ -51,6 +59,19 @@ CACHE_TYPE_V="turbo4"
 # 8192 = uzun dusunme icin
 REASONING_BUDGET=4096
 
+# llama-ui (SvelteKit tabanli yeni Web UI, llama.cpp varsayilan olarak acik):
+# https://github.com/ggml-org/llama.cpp/discussions/16938
+# 1 = acik (varsayilan), 0 = --no-webui ile kapat
+ENABLE_WEBUI=1
+
+# Disa acik (0.0.0.0) calistirildigi icin opsiyonel API anahtari.
+# Bos birakirsan --api-key gecilmez.
+API_KEY=""
+
+# UI'in slot/istek metriklerini gormesi icin /slots endpoint'i.
+# 1 = --slots ekle, 0 = ekleme.
+ENABLE_SLOTS=1
+
 mkdir -p "$MODEL_DIR"
 cd "$LLAMA_DIR"
 
@@ -59,25 +80,40 @@ echo "   $MODEL_URL"
 echo "Dosya:"
 echo "   $MODEL_FILE"
 
-if [ ! -f "$MODEL_FILE" ]; then
-    echo "Model indiriliyor..."
-    if command -v aria2c >/dev/null 2>&1; then
-        aria2c \
-            --dir="$MODEL_DIR" \
-            --out="$(basename "$MODEL_FILE")" \
-            --continue=true \
-            --max-connection-per-server=16 \
-            --split=16 \
-            --min-split-size=10M \
-            --file-allocation=none \
-            "$MODEL_URL"
-    else
+download_with_aria2c() {
+    _url="$1"
+    _out="$2"
+    if ! command -v aria2c >/dev/null 2>&1; then
         echo "aria2c bulunamadi. Kur:"
         echo "   Ubuntu/Debian: sudo apt-get update && sudo apt-get install -y aria2"
         exit 1
     fi
+    aria2c \
+        --dir="$MODEL_DIR" \
+        --out="$_out" \
+        --continue=true \
+        --max-connection-per-server=16 \
+        --split=16 \
+        --min-split-size=10M \
+        --file-allocation=none \
+        "$_url"
+}
+
+if [ ! -f "$MODEL_FILE" ]; then
+    echo "Model indiriliyor..."
+    download_with_aria2c "$MODEL_URL" "$(basename "$MODEL_FILE")"
 else
     echo "Model zaten var, indirme atlandi."
+fi
+
+if [ "$ENABLE_MMPROJ" = "1" ]; then
+    if [ ! -f "$MMPROJ_FILE" ]; then
+        echo "mmproj indiriliyor:"
+        echo "   $MMPROJ_URL"
+        download_with_aria2c "$MMPROJ_URL" "$(basename "$MMPROJ_FILE")"
+    else
+        echo "mmproj zaten var, indirme atlandi."
+    fi
 fi
 
 if [ ! -x ./build/bin/llama-server ]; then
@@ -103,6 +139,21 @@ echo "TurboQuant KV Cache + 256K Context + MTP ile baslatiliyor..."
 
 : > "$LOG_FILE"
 
+# Opsiyonel bayraklar (dizi yerine konumsal parametrelerle, POSIX sh uyumlu)
+set --
+if [ "$ENABLE_WEBUI" = "0" ]; then
+    set -- "$@" --no-webui
+fi
+if [ "$ENABLE_SLOTS" = "1" ]; then
+    set -- "$@" --slots
+fi
+if [ -n "$API_KEY" ]; then
+    set -- "$@" --api-key "$API_KEY"
+fi
+if [ "$ENABLE_MMPROJ" = "1" ]; then
+    set -- "$@" --mmproj "$MMPROJ_FILE"
+fi
+
 nohup ./build/bin/llama-server \
   -m "$MODEL_FILE" \
   -ngl "$GPU_LAYERS" \
@@ -122,6 +173,7 @@ nohup ./build/bin/llama-server \
   --spec-draft-n-max "$SPEC_DRAFT_N_MAX" \
   --reasoning-budget "$REASONING_BUDGET" \
   --no-mmap \
+  "$@" \
   > "$LOG_FILE" 2>&1 &
 
 SERVER_PID=$!
@@ -134,7 +186,19 @@ echo "Context: $CTX_SIZE"
 echo "Parallel slots: $PARALLEL_SLOTS"
 echo "MTP: $SPEC_TYPE, draft-n-max=$SPEC_DRAFT_N_MAX"
 echo "KV cache: K=$CACHE_TYPE_K, V=$CACHE_TYPE_V"
-echo "Web arayuzu: http://$(hostname -I | awk '{print $1}'):$PORT"
+if [ "$ENABLE_MMPROJ" = "1" ]; then
+    echo "Multimodal: aktif (mmproj=$MMPROJ_FILE)"
+else
+    echo "Multimodal: kapali (ENABLE_MMPROJ=1 ile ac)"
+fi
+if [ "$ENABLE_WEBUI" = "0" ]; then
+    echo "Web UI (llama-ui): KAPALI (--no-webui)"
+else
+    echo "Web UI (llama-ui): http://$(hostname -I | awk '{print $1}'):$PORT"
+fi
+if [ -n "$API_KEY" ]; then
+    echo "API key korumasi: aktif (Authorization: Bearer <API_KEY>)"
+fi
 echo ""
 echo "Log takip:"
 echo "   tail -f $LOG_FILE"

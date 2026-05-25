@@ -1,0 +1,60 @@
+# llama-swap ornek config: TheTom/llama-cpp-turboquant fork + Qwen3.6 35B MTP
+#
+# Tek profil ornek; istersen daha fazla model ekle (bkz. README "Yeni model profili").
+# Istemci OpenAI API'sine "model": "qwen3.6-35b-mtp" gonderir; swap llama-server'i
+# spawn eder. WebUI (llama-ui) de ayni port uzerinden sunulur.
+#
+# Schema: https://raw.githubusercontent.com/mostlygeek/llama-swap/refs/heads/main/config-schema.json
+
+healthCheckTimeout: 600   # 256K ctx + MTP cold start uzun surebilir
+logLevel: info
+logToStdout: "proxy"
+startPort: 10001
+globalTTL: 1800           # 30 dk bos kalan modeli unload et
+
+macros:
+  models_dir: "${env.HOME}/local_claude/models"
+  turbo_dir: "${env.HOME}/local_claude/llama-turboquant/llama-cpp-turboquant"
+
+models:
+
+  "qwen3.6-35b-mtp":
+    name: "Qwen3.6 35B A3B MTP (text + vision)"
+    description: "MoE 35B-A3B, TurboQuant turbo4 KV, MTP draft, 256K ctx, multimodal"
+    cmd: |
+      ${turbo_dir}/build/bin/llama-server
+      --host 127.0.0.1 --port ${PORT}
+      -m ${models_dir}/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf
+      --mmproj ${models_dir}/mmproj-F16.gguf
+      -c 262144
+      -ngl 99
+      -np 1
+      --flash-attn on
+      --cont-batching
+      --jinja
+      -t 0
+      --batch-size 1024
+      --ubatch-size 512
+      --cache-type-k turbo4
+      --cache-type-v turbo4
+      --spec-type draft-mtp
+      --spec-draft-n-max 6
+      --reasoning-budget 4096
+      --no-mmap
+    ttl: 1800
+    aliases:
+      - "qwen3.6"
+      - "qwen"
+
+# Daha fazla model eklemek istersen, asagidaki sablonu kopyala:
+#
+# "model-id":
+#   name: "Insanca isim"
+#   cmd: |
+#     ${turbo_dir}/build/bin/llama-server
+#     --host 127.0.0.1 --port ${PORT}
+#     -m ${models_dir}/dosya.gguf
+#     -c 32768
+#     -ngl 99
+#     -np 1
+#   ttl: 600

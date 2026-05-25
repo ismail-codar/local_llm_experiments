@@ -1,11 +1,15 @@
 #!/bin/bash
-echo "=== llama-server durduruluyor... ==="
+echo "=== llama-swap ve llama-server durduruluyor... ==="
 
-# Önce nazikçe durdur (SIGTERM)
+# Önce llama-swap (varsa) — kendi spawn ettiği llama-server'ları da temizler
+pkill -TERM -f "llama-swap" || true
+
+# Sonra llama-server (direkt başlatılmış olanlar için)
 pkill -TERM -f "llama-server" || true
 sleep 2
 
 # Hala varsa zorla öldür
+pkill -KILL -f "llama-swap" || true
 pkill -KILL -f "llama-server" || true
 
-echo "✅ Tüm llama-server süreçleri durduruldu."
+echo "✅ Tüm llama-swap ve llama-server süreçleri durduruldu."
