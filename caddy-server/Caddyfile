@@ -1,0 +1,23 @@
+{
+	admin off
+	auto_https off
+}
+
+:80 {
+	log {
+		output file /var/log/caddy/access.log
+		format json
+	}
+
+	handle_path /llama/* {
+		reverse_proxy localhost:8001
+	}
+
+	handle_path /searxng/* {
+		reverse_proxy localhost:3333
+	}
+
+	handle {
+		respond "caddy ok" 200
+	}
+}
