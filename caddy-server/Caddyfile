@@ -23,8 +23,12 @@
 
 	@localai path /localai /localai/*
 	handle @localai {
-		uri strip_prefix /localai
-		reverse_proxy localhost:8000
+		# Prefix'i STRIPLE ETME: LocalAI subpath'i X-Forwarded-Prefix ile
+		# kendisi hallediyor (PR #4497). Yolu olduğu gibi geçir, sadece
+		# header'ı ekle; LocalAI asset/redirect URL'lerini /localai ile üretir.
+		reverse_proxy localhost:8000 {
+			header_up X-Forwarded-Prefix /localai
+		}
 	}
 
 	handle {
