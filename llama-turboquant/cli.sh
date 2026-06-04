@@ -121,6 +121,16 @@ REASONING_BUDGET="${REASONING_BUDGET:-4096}"
 # Bos birakirsan --reasoning-format hic gecilmez (llama.cpp varsayilani).
 REASONING_FORMAT="${REASONING_FORMAT:-deepseek}"
 
+# Ozel chat template dosyasi (opsiyonel, build-bagimsiz <think> cozumu):
+# Bazi modellerin (orn. LFM2.5) template'i generation prompt'unda <think>
+# ACMAZ; model <think>'i kendisi uretir ve --reasoning on/auto + peg-native
+# parser bunu reasoning_content'e ayristiramaz (log: thinking = 0).
+# Cozum: generation prompt'u <think> ile baslatan bir template ver; boylece
+# llama.cpp thinking'i "forced-open" sayar ve deepseek formatinda </think>'e
+# kadar olan kismi reasoning olarak ayirir.
+# Bos birakirsan --chat-template-file hic gecilmez (modelin gomulu template'i).
+CHAT_TEMPLATE_FILE="${CHAT_TEMPLATE_FILE:-}"
+
 # Sampling varsayilanlari (sunucu varsayilani; istek bunlari override edebilir).
 # Bos birakilanlar llama-server'a hic gecilmez (llama.cpp varsayilani kullanilir).
 TEMP="${TEMP:-}"
@@ -254,6 +264,14 @@ start() {
   fi
   if [ -n "$REASONING_FORMAT" ]; then
     set -- "$@" --reasoning-format "$REASONING_FORMAT"
+  fi
+  if [ -n "$CHAT_TEMPLATE_FILE" ]; then
+    if [ ! -f "$CHAT_TEMPLATE_FILE" ]; then
+      echo "Chat template dosyasi bulunamadi: $CHAT_TEMPLATE_FILE"
+      exit 1
+    fi
+    set -- "$@" --chat-template-file "$CHAT_TEMPLATE_FILE"
+    echo "Ozel chat template: $CHAT_TEMPLATE_FILE"
   fi
   if [ -n "$TEMP" ]; then
     set -- "$@" --temp "$TEMP"
