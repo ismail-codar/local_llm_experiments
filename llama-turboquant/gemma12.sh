@@ -1,3 +1,8 @@
+llama.cpp built from am17an's gemma4-mtp branch — Gemma-4 MTP not yet merged to master.
+
+---
+
+
 # llama.cpp + Gemma 4 12B-it + Gemma 4 12B-it-assistant speculative decoding server
 #
 # Usage:
@@ -32,11 +37,11 @@ HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8003}"
 API_KEY="${LLAMA_API_KEY:-}"
 
-MODEL_URL="${MODEL_URL:-https://huggingface.co/unsloth/gemma-4-12b-it-GGUF/resolve/main/gemma-4-12b-it-UD-Q8_K_XL.gguf}"
-MODEL_FILE="${MODEL_FILE:-$MODEL_DIR/gemma-4-12b-it-UD-Q8_K_XL.gguf}"
+MODEL_URL="${MODEL_URL:-https://huggingface.co/ironbcc/gemma-4-26B-A4B-it-MTP-GGUF/resolve/main/gemma-4-26B-A4B-it-Q8_0.gguf}"
+MODEL_FILE="${MODEL_FILE:-$MODEL_DIR/gemma-4-26B-A4B-it-Q8_0.gguf}"
 
-DRAFT_URL="${DRAFT_URL:-https://huggingface.co/colefuoco00/gemma-4-12B-it-assistant-GGUF/resolve/main/gemma-4-12B-it-assistant-Q8_0.gguf}"
-DRAFT_FILE="${DRAFT_FILE:-$MODEL_DIR/gemma-4-12B-it-assistant-Q8_0.gguf}"
+DRAFT_URL="${DRAFT_URL:-https://huggingface.co/ironbcc/gemma-4-26B-A4B-it-MTP-GGUF/resolve/main/gemma-4-26B-A4B-it-assistant-Q2_K.gguf}"
+DRAFT_FILE="${DRAFT_FILE:-$MODEL_DIR/gemma-4-26B-A4B-it-assistant-Q2_K.gguf}"
 
 ENABLE_MMPROJ="${ENABLE_MMPROJ:-0}"
 MMPROJ_URL="${MMPROJ_URL:-}"
@@ -52,9 +57,9 @@ BATCH_SIZE="${BATCH_SIZE:-1024}"
 UBATCH_SIZE="${UBATCH_SIZE:-512}"
 THREADS="${THREADS:-0}"
 
-ENABLE_SPEC="${ENABLE_SPEC:-0}"
-SPEC_TYPE="${SPEC_TYPE:-draft-simple}"
-DRAFT_MAX="${DRAFT_MAX:-8}"
+ENABLE_SPEC="${ENABLE_SPEC:-1}"
+SPEC_TYPE="${SPEC_TYPE:-draft-mtp}"
+DRAFT_MAX="${DRAFT_MAX:-3}"
 DRAFT_MIN="${DRAFT_MIN:-0}"
 DRAFT_P_MIN="${DRAFT_P_MIN:-0.50}"
 
