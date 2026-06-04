@@ -18,3 +18,63 @@ pkill -f "vllm"
 # Boru hattına gelen çıktıdan "vllm" geçen satırları büyük/küçük harf duyarsız filtrele
 grep -i vllm
 ```
+
+
+---
+```sh
+@'
+{
+  "model": "Qwen/Qwen3.6-27B-FP8",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Merhaba dünya!"
+    }
+  ]
+}
+'@ | Set-Content -Encoding utf8 body.json
+
+curl.exe http://10.198.15.173:8000/v1/chat/completions `
+    -H "Content-Type: application/json" `
+    --data-binary "@body.json"
+
+```
+---
+```sh
+@'
+  {
+    "model": "Qwen/Qwen3.6-27B-FP8",
+    "messages": [
+      {
+        "role": "user",
+        "content": "İstanbul'da hava bugün nasıl?"
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Bir şehrin güncel hava durumunu döner",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "city": {
+                "type": "string",
+                "description": "Şehir adı, örn. İstanbul"
+              }
+            },
+            "required": ["city"]
+          }
+        }
+      }
+    ],
+    "tool_choice": "auto"
+  }
+'@ | Set-Content -Encoding utf8 tool_body.json
+
+curl.exe http://10.198.15.173:8000/v1/chat/completions `
+      -H "Content-Type: application/json" `
+      --data-binary "@tool_body.json"
+
+```

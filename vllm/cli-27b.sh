@@ -27,6 +27,9 @@ start() {
     --gpu-memory-utilization 0.95 \
     --max-model-len 8192 \
     --max-num-batched-tokens 8192 \
+    --enable-auto-tool-choice \
+    --tool-call-parser hermes \
+    --reasoning-parser qwen3 \
     --port "$PORT" \
     > "$LOG_FILE" 2>&1 &
 
