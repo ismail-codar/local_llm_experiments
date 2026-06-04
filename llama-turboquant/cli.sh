@@ -1,4 +1,5 @@
 #!/bin/sh
+# llama.cpp + TurboQuant + Qwen3.6 MTP server control: start / stop / log
 set -e
 
 echo "=== Local LLM + TurboQuant + Qwen3.6 MTP (NVIDIA L40S 48GB) ==="
@@ -8,6 +9,7 @@ ROOT_DIR="$SCRIPT_DIR"
 LLAMA_DIR="$ROOT_DIR/llama-cpp-turboquant"
 MODEL_DIR="$ROOT_DIR/../models"
 LOG_FILE="$ROOT_DIR/llama-server.log"
+PID_FILE="$ROOT_DIR/llama-server.pid"
 
 HOST="0.0.0.0"
 PORT="8001"
@@ -74,14 +76,6 @@ API_KEY=""
 # 1 = --slots ekle, 0 = ekleme.
 ENABLE_SLOTS=1
 
-mkdir -p "$MODEL_DIR"
-cd "$LLAMA_DIR"
-
-echo "Model:"
-echo "   $MODEL_URL"
-echo "Dosya:"
-echo "   $MODEL_FILE"
-
 download_with_aria2c() {
     _url="$1"
     _out="$2"
@@ -101,109 +95,160 @@ download_with_aria2c() {
         "$_url"
 }
 
-if [ ! -f "$MODEL_FILE" ]; then
+start() {
+  if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    echo "llama-server zaten calisiyor (PID $(cat "$PID_FILE"))"
+    exit 0
+  fi
+
+  mkdir -p "$MODEL_DIR"
+  cd "$LLAMA_DIR"
+
+  echo "Model:"
+  echo "   $MODEL_URL"
+  echo "Dosya:"
+  echo "   $MODEL_FILE"
+
+  if [ ! -f "$MODEL_FILE" ]; then
     echo "Model indiriliyor..."
     download_with_aria2c "$MODEL_URL" "$(basename "$MODEL_FILE")"
-else
+  else
     echo "Model zaten var, indirme atlandi."
-fi
+  fi
 
-if [ "$ENABLE_MMPROJ" = "1" ]; then
+  if [ "$ENABLE_MMPROJ" = "1" ]; then
     if [ ! -f "$MMPROJ_FILE" ]; then
-        echo "mmproj indiriliyor:"
-        echo "   $MMPROJ_URL"
-        download_with_aria2c "$MMPROJ_URL" "$(basename "$MMPROJ_FILE")"
+      echo "mmproj indiriliyor:"
+      echo "   $MMPROJ_URL"
+      download_with_aria2c "$MMPROJ_URL" "$(basename "$MMPROJ_FILE")"
     else
-        echo "mmproj zaten var, indirme atlandi."
+      echo "mmproj zaten var, indirme atlandi."
     fi
-fi
+  fi
 
-if [ ! -x ./build/bin/llama-server ]; then
+  if [ ! -x ./build/bin/llama-server ]; then
     echo "llama-server bulunamadi veya executable degil:"
     echo "   ./build/bin/llama-server"
     exit 1
-fi
+  fi
 
-# llama.cpp 13 Mayis 2026 civari --spec-type mtp adini draft-mtp olarak degistirdi.
-# Fork eski adla derlenmis olabilir; otomatik sec.
-if ./build/bin/llama-server --help 2>&1 | grep -q "draft-mtp"; then
+  # llama.cpp 13 Mayis 2026 civari --spec-type mtp adini draft-mtp olarak degistirdi.
+  # Fork eski adla derlenmis olabilir; otomatik sec.
+  if ./build/bin/llama-server --help 2>&1 | grep -q "draft-mtp"; then
     SPEC_TYPE="draft-mtp"
-elif ./build/bin/llama-server --help 2>&1 | grep -q "mtp"; then
+  elif ./build/bin/llama-server --help 2>&1 | grep -q "mtp"; then
     SPEC_TYPE="mtp"
-else
+  else
     echo "Bu llama-server build'i MTP spec decoding desteklemiyor gibi gorunuyor."
     echo "MTP + TurboQuant destekli fork/build kullandigindan emin ol."
     exit 1
-fi
+  fi
 
-echo "Secilen spec-type: $SPEC_TYPE"
-echo "TurboQuant KV Cache + 256K Context + MTP ile baslatiliyor..."
+  echo "Secilen spec-type: $SPEC_TYPE"
+  echo "TurboQuant KV Cache + 256K Context + MTP ile baslatiliyor..."
 
-: > "$LOG_FILE"
+  : > "$LOG_FILE"
 
-# Opsiyonel bayraklar (dizi yerine konumsal parametrelerle, POSIX sh uyumlu)
-set --
-if [ "$ENABLE_WEBUI" = "0" ]; then
+  # Opsiyonel bayraklar (dizi yerine konumsal parametrelerle, POSIX sh uyumlu)
+  set --
+  if [ "$ENABLE_WEBUI" = "0" ]; then
     set -- "$@" --no-webui
-fi
-if [ "$ENABLE_SLOTS" = "1" ]; then
+  fi
+  if [ "$ENABLE_SLOTS" = "1" ]; then
     set -- "$@" --slots
-fi
-if [ -n "$API_KEY" ]; then
+  fi
+  if [ -n "$API_KEY" ]; then
     set -- "$@" --api-key "$API_KEY"
-fi
-if [ "$ENABLE_MMPROJ" = "1" ]; then
+  fi
+  if [ "$ENABLE_MMPROJ" = "1" ]; then
     set -- "$@" --mmproj "$MMPROJ_FILE"
-fi
+  fi
 
-nohup ./build/bin/llama-server \
-  -m "$MODEL_FILE" \
-  -ngl "$GPU_LAYERS" \
-  -c "$CTX_SIZE" \
-  --flash-attn on \
-  --cont-batching \
-  -np "$PARALLEL_SLOTS" \
-  --host "$HOST" \
-  --port "$PORT" \
-  --jinja \
-#   --chat-template-file "$SCRIPT_DIR/chat_template.jinja" \
-  -t "$THREADS" \
-  --batch-size "$BATCH_SIZE" \
-  --ubatch-size "$UBATCH_SIZE" \
-  --cache-type-k "$CACHE_TYPE_K" \
-  --cache-type-v "$CACHE_TYPE_V" \
-  --spec-type "$SPEC_TYPE" \
-  --spec-draft-n-max "$SPEC_DRAFT_N_MAX" \
-  --reasoning-budget "$REASONING_BUDGET" \
-  --no-mmap \
-  "$@" \
-  > "$LOG_FILE" 2>&1 &
+  nohup ./build/bin/llama-server \
+    -m "$MODEL_FILE" \
+    -ngl "$GPU_LAYERS" \
+    -c "$CTX_SIZE" \
+    --flash-attn on \
+    --cont-batching \
+    -np "$PARALLEL_SLOTS" \
+    --host "$HOST" \
+    --port "$PORT" \
+    --jinja \
+    -t "$THREADS" \
+    --batch-size "$BATCH_SIZE" \
+    --ubatch-size "$UBATCH_SIZE" \
+    --cache-type-k "$CACHE_TYPE_K" \
+    --cache-type-v "$CACHE_TYPE_V" \
+    --spec-type "$SPEC_TYPE" \
+    --spec-draft-n-max "$SPEC_DRAFT_N_MAX" \
+    --reasoning-budget "$REASONING_BUDGET" \
+    --no-mmap \
+    "$@" \
+    > "$LOG_FILE" 2>&1 &
 
-SERVER_PID=$!
+  SERVER_PID=$!
+  echo "$SERVER_PID" > "$PID_FILE"
 
-echo ""
-echo "llama-server arka planda baslatildi (PID: $SERVER_PID)"
-echo "Log dosyasi: $LOG_FILE"
-echo "Model dosyasi: $MODEL_FILE"
-echo "Context: $CTX_SIZE"
-echo "Parallel slots: $PARALLEL_SLOTS"
-echo "MTP: $SPEC_TYPE, draft-n-max=$SPEC_DRAFT_N_MAX"
-echo "KV cache: K=$CACHE_TYPE_K, V=$CACHE_TYPE_V"
-if [ "$ENABLE_MMPROJ" = "1" ]; then
+  echo ""
+  echo "llama-server arka planda baslatildi (PID: $SERVER_PID)"
+  echo "Log dosyasi: $LOG_FILE"
+  echo "Model dosyasi: $MODEL_FILE"
+  echo "Context: $CTX_SIZE"
+  echo "Parallel slots: $PARALLEL_SLOTS"
+  echo "MTP: $SPEC_TYPE, draft-n-max=$SPEC_DRAFT_N_MAX"
+  echo "KV cache: K=$CACHE_TYPE_K, V=$CACHE_TYPE_V"
+  if [ "$ENABLE_MMPROJ" = "1" ]; then
     echo "Multimodal: aktif (mmproj=$MMPROJ_FILE)"
-else
+  else
     echo "Multimodal: kapali (ENABLE_MMPROJ=1 ile ac)"
-fi
-if [ "$ENABLE_WEBUI" = "0" ]; then
+  fi
+  if [ "$ENABLE_WEBUI" = "0" ]; then
     echo "Web UI (llama-ui): KAPALI (--no-webui)"
-else
+  else
     echo "Web UI (llama-ui): http://$(hostname -I | awk '{print $1}'):$PORT"
-fi
-if [ -n "$API_KEY" ]; then
+  fi
+  if [ -n "$API_KEY" ]; then
     echo "API key korumasi: aktif (Authorization: Bearer <API_KEY>)"
-fi
-echo ""
-echo "Log takip:"
-echo "   tail -f $LOG_FILE"
-echo ""
-echo "Durdurmak icin: ./stop.sh"
+  fi
+}
+
+stop() {
+  if [ ! -f "$PID_FILE" ]; then
+    echo "Calismiyor (PID dosyasi yok)"
+    exit 0
+  fi
+
+  PID="$(cat "$PID_FILE")"
+  if kill -0 "$PID" 2>/dev/null; then
+    echo "llama-server durduruluyor (PID $PID)..."
+    kill "$PID"
+    # graceful shutdown icin 30s'ye kadar bekle, sonra zorla
+    for _ in $(seq 1 30); do
+      kill -0 "$PID" 2>/dev/null || break
+      sleep 1
+    done
+    if kill -0 "$PID" 2>/dev/null; then
+      echo "Zorla durduruluyor..."
+      kill -9 "$PID" 2>/dev/null || true
+    fi
+    echo "Durduruldu"
+  else
+    echo "Surec $PID canli degil; temizleniyor"
+  fi
+  rm -f "$PID_FILE"
+}
+
+log() {
+  if [ ! -f "$LOG_FILE" ]; then
+    echo "Log dosyasi yok: $LOG_FILE"
+    exit 1
+  fi
+  tail -n 255 -f "$LOG_FILE"
+}
+
+case "$1" in
+  start) start ;;
+  stop)  stop ;;
+  log)   log ;;
+  *)     echo "Usage: $0 {start|stop|log}"; exit 1 ;;
+esac
