@@ -178,6 +178,12 @@ start() {
   fi
 
   mkdir -p "$MODEL_DIR"
+
+  if [ ! -x "$LLAMA_DIR/build/bin/llama-server" ]; then
+    echo "HATA: llama-server bulunamadi: $LLAMA_DIR/build/bin/llama-server"
+    echo "Once kurulum yapin: $0 --env <env-dosyasi> install"
+    exit 1
+  fi
   cd "$LLAMA_DIR"
 
   echo "Model:"
@@ -202,14 +208,44 @@ start() {
     fi
   fi
 
+  if [ "$ENABLE_DFLASH" = "1" ]; then
+    if [ ! -f "$DRAFT_MODEL_FILE" ]; then
+      echo "DFlash draft modeli indiriliyor:"
+      echo "   $DRAFT_MODEL_URL"
+      download_with_aria2c "$DRAFT_MODEL_URL" "$(basename "$DRAFT_MODEL_FILE")"
+    else
+      echo "DFlash draft modeli zaten var, indirme atlandi."
+    fi
+  fi
+
   if [ ! -x ./build/bin/llama-server ]; then
     echo "llama-server bulunamadi veya executable degil:"
     echo "   ./build/bin/llama-server"
     exit 1
   fi
 
+  if [ "$ENABLE_MTP" = "1" ] && [ "$ENABLE_DFLASH" = "1" ]; then
+    echo "HATA: ENABLE_MTP ve ENABLE_DFLASH ayni anda 1 olamaz; birini secin."
+    exit 1
+  fi
+
   SPEC_TYPE=""
-  if [ "$ENABLE_MTP" = "1" ]; then
+  if [ "$ENABLE_DFLASH" = "1" ]; then
+    if [ ! -f "$DRAFT_MODEL_FILE" ]; then
+      echo "HATA: DFlash draft modeli bulunamadi: $DRAFT_MODEL_FILE"
+      exit 1
+    fi
+    if ./build/bin/llama-server --help 2>&1 | grep -q -- "--spec-dflash-cross-ctx"; then
+      SPEC_TYPE="dflash"
+      echo "Secilen spec-type: dflash (draft=$DRAFT_MODEL_FILE)"
+      echo "DFlash + Context $CTX_SIZE ile baslatiliyor..."
+    else
+      echo "Bu llama-server build'i DFlash spec decoding desteklemiyor gibi gorunuyor."
+      echo "DFlash destekli fork/build kullandigindan emin ol (beellama.cpp)."
+      echo "DFlash'siz model kullaniyorsan .env icinde ENABLE_DFLASH=0 yap."
+      exit 1
+    fi
+  elif [ "$ENABLE_MTP" = "1" ]; then
     # llama.cpp 13 Mayis 2026 civari --spec-type mtp adini draft-mtp olarak degistirdi.
     # Fork eski adla derlenmis olabilir; otomatik sec.
     if ./build/bin/llama-server --help 2>&1 | grep -q "draft-mtp"; then
@@ -245,7 +281,12 @@ start() {
   if [ "$ENABLE_MMPROJ" = "1" ]; then
     set -- "$@" --mmproj "$MMPROJ_FILE"
   fi
-  if [ -n "$SPEC_TYPE" ]; then
+  if [ "$SPEC_TYPE" = "dflash" ]; then
+    set -- "$@" --spec-type dflash \
+      --spec-draft-model "$DRAFT_MODEL_FILE" \
+      --spec-draft-ngl "${SPEC_DRAFT_NGL:-99}" \
+      --spec-dflash-cross-ctx "${SPEC_DFLASH_CROSS_CTX:-1024}"
+  elif [ -n "$SPEC_TYPE" ]; then
     set -- "$@" --spec-type "$SPEC_TYPE" --spec-draft-n-max "$SPEC_DRAFT_N_MAX"
   fi
   if [ -n "$REASONING" ]; then
@@ -317,10 +358,12 @@ start() {
   echo "Model dosyasi: $MODEL_FILE"
   echo "Context: $CTX_SIZE"
   echo "Parallel slots: $PARALLEL_SLOTS"
-  if [ -n "$SPEC_TYPE" ]; then
+  if [ "$SPEC_TYPE" = "dflash" ]; then
+    echo "Spec decoding: DFlash (draft=$DRAFT_MODEL_FILE, cross-ctx=${SPEC_DFLASH_CROSS_CTX:-1024})"
+  elif [ -n "$SPEC_TYPE" ]; then
     echo "MTP: $SPEC_TYPE, draft-n-max=$SPEC_DRAFT_N_MAX"
   else
-    echo "MTP: kapali"
+    echo "Spec decoding: kapali"
   fi
   echo "KV cache: K=$CACHE_TYPE_K, V=$CACHE_TYPE_V"
   if [ "$ENABLE_MMPROJ" = "1" ]; then
