@@ -7,8 +7,8 @@ PID_FILE="$SCRIPT_DIR/triposplat.pid"
 LOG_FILE="$SCRIPT_DIR/triposplat.log"
 
 # Gradio launch() bu env değişkenlerini okur; app.py'ye dokunmadan kontrol ederiz.
-# Sadece localhost'a bind ediyoruz; dışarıya açılış Caddy üzerinden (bkz. caddy-server/Caddyfile).
-HOST="${GRADIO_SERVER_NAME:-127.0.0.1}"
+# 0.0.0.0'a (tum arayuzler) bind ediyoruz; ayrica Caddy onunde de calistirilabilir (bkz. caddy-server/Caddyfile).
+HOST="${GRADIO_SERVER_NAME:-0.0.0.0}"
 PORT="${GRADIO_SERVER_PORT:-7860}"
 
 is_running() {
