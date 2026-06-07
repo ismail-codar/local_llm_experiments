@@ -44,8 +44,8 @@ done
 # Boylece .env icinde MODEL_FILE="$MODEL_DIR/foo.gguf" gibi referanslar calisir.
 LLAMA_DIR="${LLAMA_DIR:-$ROOT_DIR/llama-cpp-turboquant}"
 MODEL_DIR="${MODEL_DIR:-$ROOT_DIR/../models}"
-LOG_FILE="${LOG_FILE:-$ROOT_DIR/llama-server.log}"
-PID_FILE="${PID_FILE:-$ROOT_DIR/llama-server.pid}"
+# LOG_FILE / PID_FILE bilerek burada seed EDILMIYOR; env yuklendikten sonra
+# env adina gore turetiliyor ki ayni anda birden fazla model calisabilsin.
 
 # install komutu icin repo ayarlari env ile override edilebilir.
 INSTALL_REPO_URL="${INSTALL_REPO_URL:-https://github.com/TheTom/llama-cpp-turboquant.git}"
@@ -62,6 +62,14 @@ if [ -f "$ENV_FILE" ]; then
   . "$ENV_FILE"
   set +a
 fi
+
+# Her env kendi PID/LOG dosyasini kullanir; boylece farkli modeller (farkli
+# portlarda) ayni anda calisabilir ve birbirinin PID dosyasini ezmez.
+# Env dosyasi PID_FILE/LOG_FILE'i acikca verirse o kullanilir.
+_ENV_TAG="$(basename "$ENV_FILE" | sed 's/\.[^.]*$//')"
+[ -n "$_ENV_TAG" ] || _ENV_TAG=default
+LOG_FILE="${LOG_FILE:-$ROOT_DIR/llama-server-$_ENV_TAG.log}"
+PID_FILE="${PID_FILE:-$ROOT_DIR/llama-server-$_ENV_TAG.pid}"
 
 # --- Genel varsayilanlar ---
 HOST="${HOST:-0.0.0.0}"
@@ -279,10 +287,18 @@ start() {
   if [ "$ENABLE_EMBEDDING" = "1" ]; then
     set -- "$@" --embeddings
     if [ -n "$POOLING_TYPE" ]; then
-      set -- "$@" --pooling "$POOLING_TYPE"
+      if check_flag_supported "--pooling"; then
+        set -- "$@" --pooling "$POOLING_TYPE"
+      else
+        echo "UYARI: Bu build --pooling desteklemiyor; POOLING_TYPE=$POOLING_TYPE atlandi."
+      fi
     fi
     if [ -n "$EMBD_NORMALIZE" ]; then
-      set -- "$@" --embd-normalize "$EMBD_NORMALIZE"
+      if check_flag_supported "--embd-normalize"; then
+        set -- "$@" --embd-normalize "$EMBD_NORMALIZE"
+      else
+        echo "UYARI: Bu build --embd-normalize desteklemiyor; EMBD_NORMALIZE=$EMBD_NORMALIZE atlandi."
+      fi
     fi
     echo "Embedding modu: aktif (pooling=${POOLING_TYPE:-varsayilan}, normalize=${EMBD_NORMALIZE:-varsayilan})"
   fi
@@ -448,6 +464,42 @@ start() {
     echo "API key korumasi: aktif"
   else
     echo "API key korumasi: kapali"
+  fi
+
+  # Embedding modu acikken: server hazir olunca calistirilabilecek ornek
+  # test istegini konsola yazdir (OpenAI uyumlu /v1/embeddings ucu).
+  if [ "$ENABLE_EMBEDDING" = "1" ]; then
+    _SRV_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    [ -n "$_SRV_IP" ] || _SRV_IP="$HOST"
+    _MODEL_NAME="$(basename "$MODEL_FILE" .gguf)"
+    echo ""
+    echo "Embedding testi (server hazir olunca calistir):"
+    echo "  curl http://$_SRV_IP:$PORT/v1/embeddings \\"
+    echo "    -H \"Content-Type: application/json\" \\"
+    if [ -n "$API_KEY" ]; then
+      echo "    -H \"Authorization: Bearer $API_KEY\" \\"
+    fi
+    echo "    -d '{"
+    echo "      \"model\": \"$_MODEL_NAME\","
+    echo "      \"input\": \"task: search result | query: Merhaba dunya\""
+    echo "    }'"
+  else
+    _SRV_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    [ -n "$_SRV_IP" ] || _SRV_IP="$HOST"
+    _MODEL_NAME="$(basename "$MODEL_FILE" .gguf)"
+    echo ""
+    echo "Sohbet testi (server hazir olunca calistir):"
+    echo "  curl http://$_SRV_IP:$PORT/v1/chat/completions \\"
+    echo "    -H \"Content-Type: application/json\" \\"
+    if [ -n "$API_KEY" ]; then
+      echo "    -H \"Authorization: Bearer $API_KEY\" \\"
+    fi
+    echo "    -d '{"
+    echo "      \"model\": \"$_MODEL_NAME\","
+    echo "      \"messages\": ["
+    echo "        { \"role\": \"user\", \"content\": \"Merhaba dunya!\" }"
+    echo "      ]"
+    echo "    }'"
   fi
 }
 

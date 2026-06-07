@@ -1,4 +1,20 @@
 #!/bin/sh
+#
+# Caddy yönetim aracı — tüm config ve loglar bu script'in bulunduğu klasörde.
+#
+# Kullanım örnekleri:
+#   ./cli.sh start      # Caddy'yi yerel Caddyfile ile arka planda başlatır
+#   ./cli.sh status     # Çalışıyor mu, hangi PID ile kontrol eder
+#   ./cli.sh refresh    # Caddyfile'ı doğrular ve çalışan süreci reload eder (SIGUSR1)
+#   ./cli.sh log        # Log türünü sorar (çalışma / access / canlı tail)
+#   ./cli.sh stop       # Caddy'yi durdurur
+#   ./cli.sh --help     # Komut listesini gösterir
+#
+# Tipik akış:
+#   ./cli.sh start && ./cli.sh status      # başlat ve doğrula
+#   # Caddyfile düzenlendikten sonra:
+#   ./cli.sh refresh                       # kesintisiz yeniden yükle
+#
 if [ "$(id -u)" -ne 0 ]; then
     SUDO="sudo"
 else
