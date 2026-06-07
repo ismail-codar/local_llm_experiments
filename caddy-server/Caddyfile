@@ -9,6 +9,11 @@
 		format json
 	}
 
+	# WebUI'ler relative asset yolu (./bundle.js) kullandigindan, bare
+	# subpath ('/llama') trailing-slash'a yonlendirilmeli; aksi halde
+	# './bundle.js' koke ('/bundle.js') cozulur ve catch-all'a duser.
+	redir /llama /llama/ 308
+
 	@llama path /llama /llama/*
 	handle @llama {
 		uri strip_prefix /llama
@@ -24,12 +29,14 @@
 		reverse_proxy localhost:8009
 	}
 
+	redir /searxng /searxng/ 308
 	@searxng path /searxng /searxng/*
 	handle @searxng {
 		uri strip_prefix /searxng
 		reverse_proxy localhost:3333
 	}
 
+	redir /localai /localai/ 308
 	@localai path /localai /localai/*
 	handle @localai {
 		# Prefix'i STRIPLE ETME: LocalAI subpath'i X-Forwarded-Prefix ile

@@ -14,6 +14,7 @@ sudo lsof -Pan -iTCP -sTCP:LISTEN | grep -i vllm
 # Çalışan vllm süreçlerini listele; '[v]llm' deseni grep'in kendisini sonuçtan eler
 ps aux | grep -i '[v]llm'
 # Adında "vllm" geçen tüm süreçleri sonlandır (öldür)
+sudo -f "caddy"
 pkill -f "vllm"
 pkill -f "llama"
 # Boru hattına gelen çıktıdan "vllm" geçen satırları büyük/küçük harf duyarsız filtrele

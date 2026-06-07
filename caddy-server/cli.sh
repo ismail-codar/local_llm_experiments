@@ -30,7 +30,9 @@ RUN_LOG="$SCRIPT_DIR/caddy.log"       # caddy çalışma zamanı stdout/stderr (
 PID_FILE="$SCRIPT_DIR/caddy.pid"
 
 is_running() {
-    [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+    # caddy sudo ile root olarak çalıştığından kill -0 da sudo ile yapılmalı;
+    # aksi halde builtuser EPERM alır ve süreç ayaktayken "çalışmıyor" sanılır.
+    [ -f "$PID_FILE" ] && $SUDO kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
 
 start() {
@@ -137,6 +139,18 @@ log() {
     esac
 }
 
+clearlog() {
+    cleared=0
+    for f in "$RUN_LOG" "$ACCESS_LOG"; do
+        if [ -f "$f" ]; then
+            $SUDO sh -c ": > '$f'" \
+                && { echo "Temizlendi: $f"; cleared=1; } \
+                || echo "Temizlenemedi: $f" >&2
+        fi
+    done
+    [ "$cleared" -eq 0 ] && echo "Temizlenecek log bulunamadı."
+}
+
 usage() {
     cat <<EOF
 Kullanım: $0 <komut>
@@ -144,11 +158,12 @@ Kullanım: $0 <komut>
 Tüm config ve loglar bu klasörde tutulur: $SCRIPT_DIR
 
 Komutlar:
-  start    Caddy'yi yerel Caddyfile ile başlatır (arka planda)
-  stop     Caddy'yi durdurur
-  status   Çalışma durumunu gösterir
-  refresh  Caddyfile'ı doğrular ve çalışan süreci reload eder
-  log      Log türünü sorar ve gösterir
+  start     Caddy'yi yerel Caddyfile ile başlatır (arka planda)
+  stop      Caddy'yi durdurur
+  status    Çalışma durumunu gösterir
+  refresh   Caddyfile'ı doğrular ve çalışan süreci reload eder
+  log       Log türünü sorar ve gösterir
+  clearlog  Çalışma ve access loglarını temizler
 EOF
 }
 
@@ -159,6 +174,7 @@ case "$cmd" in
     status)  status ;;
     refresh) refresh ;;
     log)     log ;;
+    clearlog) clearlog ;;
     ""|-h|--help) usage ;;
     *)
         echo "Bilinmeyen komut: $cmd" >&2
