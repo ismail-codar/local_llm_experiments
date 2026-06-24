@@ -29,6 +29,17 @@
 		reverse_proxy localhost:8009
 	}
 
+	# Krea-2-Turbo (yerel GGUF) Gradio onyuzu. Gradio GRADIO_ROOT_PATH=/krea
+	# ile calisir (bkz. comfyui/cli.sh), bu yuzden prefix'i STRIPLE: app
+	# kendi asset/URL'lerini /krea ile uretir. Uretim arka planda yerel
+	# ComfyUI'ye (127.0.0.1:8188) gider; o port disa acilmaz.
+	redir /krea /krea/ 308
+	@krea path /krea /krea/*
+	handle @krea {
+		uri strip_prefix /krea
+		reverse_proxy localhost:8012
+	}
+
 	redir /searxng /searxng/ 308
 	@searxng path /searxng /searxng/*
 	handle @searxng {

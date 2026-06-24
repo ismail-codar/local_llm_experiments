@@ -1,0 +1,5 @@
+# Gradio onyuz (app.py) bagimliliklari. ComfyUI'nin kendi bagimliliklari
+# install.sh tarafindan ComfyUI/requirements.txt'ten ayri kurulur.
+gradio>=4.44
+pillow
+numpy

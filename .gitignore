@@ -1,5 +1,8 @@
 models
 bin
+.venv
+.venv*/
+**/.venv/
 .env
 build
 *.egg-info

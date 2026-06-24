@@ -1,0 +1,6 @@
+# Linux GPU makinesinde install.sh tarafindan uretilir/indirilir — repoya girmez
+ComfyUI/
+.venv/
+*.log
+*.pid
+*.part

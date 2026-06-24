@@ -1,0 +1,55 @@
+{
+  "_comment": "Krea-2-Turbo GGUF — ComfyUI API-format workflow. Tureti: realrebelai/KREA-2_GGUFs 'Rebels KREA-2-TURBO.json' editor grafiginin aktif (bagli) dugumlerinden. Bagli olmayan UNETLoader(nvfp4) ve UUID-tipli wildcard dugumu cikarildi. app.py bu sablonu yukleyip %PROMPT%/seed/width/height/steps/cfg alanlarini doldurur.",
+
+  "3": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": { "unet_name": "Krea-2-Turbo-Q5_K_S.gguf" }
+  },
+  "4": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "krea2",
+      "device": "cpu"
+    }
+  },
+  "5": {
+    "class_type": "VAELoader",
+    "inputs": { "vae_name": "qwen_image_vae.safetensors" }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "%PROMPT%", "clip": ["4", 0] }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "%NEGATIVE%", "clip": ["4", 0] }
+  },
+  "9": {
+    "class_type": "EmptyLatentImage",
+    "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }
+  },
+  "8": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["3", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["9", 0]
+    }
+  },
+  "10": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["8", 0], "vae": ["5", 0] }
+  },
+  "11": {
+    "class_type": "SaveImage",
+    "inputs": { "filename_prefix": "KREA-2/KREA_", "images": ["10", 0] }
+  }
+}
