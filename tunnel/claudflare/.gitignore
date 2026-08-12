@@ -1,0 +1,5 @@
+cloudflared.log
+cloudflared.pid
+config.yml
+cert.pem
+*.json
