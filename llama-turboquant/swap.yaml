@@ -28,7 +28,7 @@ models:
       --mmproj ${models_dir}/mmproj-F16.gguf
       -c 262144
       -ngl 99
-      -np 1
+      -np 2
       --flash-attn on
       --cont-batching
       --jinja

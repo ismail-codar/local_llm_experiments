@@ -1,5 +1,6 @@
 cloudflared.log
 cloudflared.pid
+cloudflared.mode
 config.yml
 cert.pem
 *.json
