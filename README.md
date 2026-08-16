@@ -15,6 +15,7 @@ sudo lsof -Pan -iTCP -sTCP:LISTEN | grep -i vllm
 ps aux | grep -i '[v]llm'
 # Adında "vllm" geçen tüm süreçleri sonlandır (öldür)
 sudo pkill -f "ngrok"
+sudo pkill -f "cloudflare"
 sudo pkill -f "caddy"
 pkill -f "vllm"
 pkill -f "llama"
