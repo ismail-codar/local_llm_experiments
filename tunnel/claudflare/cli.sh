@@ -15,13 +15,14 @@
 #   native (varsayılan)  yerel cloudflared süreci, PID dosyası ile yönetilir
 #   docker               cloudflare/cloudflared konteyneri (--network host)
 #
-# Tünel modu (.env -> MODE; varsayılan quick):
-#   quick   -> cloudflared tunnel --url $LOCAL_URL   (VARSAYILAN; hesap/domain
-#              gerekmez, her başlatmada yeni rastgele *.trycloudflare.com adresi;
+# Tünel modu (.env -> MODE; varsayılan auto):
+#   auto    -> (VARSAYILAN) config.yml varsa config, yoksa TUNNEL_TOKEN doluysa
+#              token, hiçbiri yoksa quick. MODE belirtmeye gerek yok.
+#   quick   -> cloudflared tunnel --url $LOCAL_URL   (hesap/domain gerekmez,
+#              her başlatmada yeni rastgele *.trycloudflare.com adresi;
 #              geliştirme/test içindir, ~200 eşzamanlı istek sınırı, SSE yok)
 #   token   -> cloudflared tunnel run --token ...    (named tunnel, sabit adres)
 #   config  -> cloudflared tunnel --config config.yml run [TUNNEL_NAME]
-#   auto    -> TUNNEL_TOKEN doluysa token, config.yml varsa config, yoksa quick
 #
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -32,7 +33,7 @@ PID_FILE="$SCRIPT_DIR/cloudflared.pid"
 MODE_FILE="$SCRIPT_DIR/cloudflared.mode"
 
 RUNTIME="native"
-MODE="quick"
+MODE="auto"
 LOCAL_URL="http://localhost:8080"
 TUNNEL_TOKEN=""
 TUNNEL_NAME=""
@@ -54,10 +55,10 @@ mode() {
     case "$MODE" in
         quick|token|config) echo "$MODE"; return ;;
     esac
-    if [ -n "$TUNNEL_TOKEN" ]; then
-        echo "token"
-    elif [ -f "$CONFIG_FILE" ]; then
+    if [ -f "$CONFIG_FILE" ]; then
         echo "config"
+    elif [ -n "$TUNNEL_TOKEN" ]; then
+        echo "token"
     else
         echo "quick"
     fi
