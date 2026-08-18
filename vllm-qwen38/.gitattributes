@@ -1,0 +1,9 @@
+# Windows'ta yazilan/duzenlenen shell ve config dosyalari Linux'ta CRLF
+# nedeniyle "Illegal option" / "bad interpreter" hatasi verebilir. Bu dosyalar
+# her zaman LF ile checkout/commit edilsin.
+#
+# NOT: *.env de kapsama alindi - cli.sh env dosyasini "source" ettigi icin
+# CRLF satir sonlari degerlerin sonuna \r yapistirir (ornek: KV_CACHE_DTYPE
+# "fp8\r" olur ve vLLM gecersiz dtype ile patlar).
+*.sh    text eol=lf
+*.env   text eol=lf
